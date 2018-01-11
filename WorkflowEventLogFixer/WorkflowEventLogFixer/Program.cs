@@ -17,14 +17,14 @@ namespace WorkflowEventLogFixer
       var files = Directory.EnumerateFiles(fileDirectory);
       foreach(var file in files)
       {
-        var rows = GetCSVFile(file);
-        WriteCsv(rows, $"{fileDirectory}\\filtered2\\{Path.GetFileNameWithoutExtension(file)}.csv");
+        var eventLog = GetCsvFile(file);
+        WriteCsv(eventLog, $"{fileDirectory}\\filtered2\\{Path.GetFileNameWithoutExtension(file)}.csv");
       }
       Console.WriteLine("Done.");
       Console.Read();
     }
 
-    private static List<Event> GetCSVFile(string filePath)
+    private static List<Event> GetCsvFile(string filePath)
     {
       var contents = File.ReadAllLines(filePath).Select(a => a.Split(','));
       var csv = from line in contents.Skip(1)
