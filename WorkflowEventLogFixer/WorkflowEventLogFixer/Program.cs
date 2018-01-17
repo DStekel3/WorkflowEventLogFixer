@@ -18,13 +18,13 @@ namespace WorkflowEventLogFixer
       foreach(var file in files)
       {
         var eventLog = GetCsvFile(file);
-        WriteCsv(eventLog, $"{fileDirectory}\\filtered2\\{Path.GetFileNameWithoutExtension(file)}.csv");
+        WriteCsv(eventLog, $"{fileDirectory}\\filtered3\\{Path.GetFileNameWithoutExtension(file)}.csv");
       }
       Console.WriteLine("Done.");
       Console.Read();
     }
 
-    private static List<Event> GetCsvFile(string filePath)
+    private static List<XesObject> GetCsvFile(string filePath)
     {
       var contents = File.ReadAllLines(filePath).Select(a => a.Split(','));
       var csv = from line in contents.Skip(1)
@@ -32,12 +32,12 @@ namespace WorkflowEventLogFixer
                         select piece).ToList();
 
       var activityKeys = new Dictionary<string, string>();
-      var totalEventLog = new List<Event>();
+      var totalEventLog = new List<CsvObject>();
       var currentDossierItem = "-1";
-      var dossierItemEvents = new List<Event>();
+      var dossierItemEvents = new List<CsvObject>();
       foreach(var row in csv.Reverse())
       {
-        var currentEvent = new Event
+        var currentEvent = new CsvObject
         {
           Workflow = row[0],
           WorkflowOmschrijving = row[1],
@@ -80,7 +80,14 @@ namespace WorkflowEventLogFixer
       }
       totalEventLog.AddRange(dossierItemEvents);
       totalEventLog.Reverse();
-      return totalEventLog;
+
+      var xesLog = new List<XesObject>();
+      foreach(CsvObject csvObject in totalEventLog)
+      {
+        xesLog.Add(new XesObject(csvObject));
+      }
+
+      return xesLog;
     }
 
     private static void WriteCsv<T>(IEnumerable<T> items, string path)

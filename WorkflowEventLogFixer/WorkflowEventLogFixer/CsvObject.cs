@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WorkflowEventLogFixer
 {
-  public class Event
+  public class CsvObject
   {
     public string Workflow { get; set; }
     public string WorkflowOmschrijving { get; set; }
@@ -25,6 +25,5 @@ namespace WorkflowEventLogFixer
     public string Status { get; set; }
     public string DoorPersoon { get; set; }
     public string WorkflowGegevensStatus { get; set; }
-    public string Doorlooptijd { get; set; }
   }
 }
