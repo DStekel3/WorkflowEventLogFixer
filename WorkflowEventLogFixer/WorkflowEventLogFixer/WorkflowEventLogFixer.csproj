@@ -113,9 +113,6 @@
     <Reference Include="ephtmltopdf, Version=2.5.6.29341, Culture=neutral, PublicKeyToken=5b5f377bc08a4d32, processorArchitecture=MSIL">
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\ephtmltopdf.dll</HintPath>
     </Reference>
-    <Reference Include="Excel, Version=2.1.2.3, Culture=neutral, PublicKeyToken=93517dbe6a4012fa, processorArchitecture=MSIL">
-      <HintPath>..\packages\ExcelDataReader.2.1.2.3\lib\net45\Excel.dll</HintPath>
-    </Reference>
     <Reference Include="FormsCore, Version=1.0.0.0, Culture=neutral, PublicKeyToken=4495254afeb8e356, processorArchitecture=MSIL">
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\FormsCore.dll</HintPath>
     </Reference>
@@ -130,9 +127,6 @@
     </Reference>
     <Reference Include="Guifreaks.NavigationBar.XmlSerializers, Version=0.1.0.0, Culture=neutral, PublicKeyToken=bf0afd6b35ed9434, processorArchitecture=MSIL">
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\Guifreaks.NavigationBar.XmlSerializers.dll</HintPath>
-    </Reference>
-    <Reference Include="ICSharpCode.SharpZipLib, Version=0.86.0.518, Culture=neutral, PublicKeyToken=1b03e6acf1164f73, processorArchitecture=MSIL">
-      <HintPath>..\packages\SharpZipLib.0.86.0\lib\20\ICSharpCode.SharpZipLib.dll</HintPath>
     </Reference>
     <Reference Include="Interop.C2SBarCodeOCX, Version=1.0.0.0, Culture=neutral, PublicKeyToken=4495254afeb8e356, processorArchitecture=MSIL">
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\Interop.C2SBarCodeOCX.dll</HintPath>
@@ -210,10 +204,6 @@
     </Reference>
     <Reference Include="Microsoft.ReportViewer.WinForms, Version=8.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\Microsoft.ReportViewer.WinForms.dll</HintPath>
-    </Reference>
-    <Reference Include="Microsoft.VisualBasic">
-      <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\Microsoft.VisualBasic.dll</HintPath>
-      <Private>True</Private>
     </Reference>
     <Reference Include="Microsoft.Win32.Security, Version=0.3.1880.16779, Culture=neutral, PublicKeyToken=4495254afeb8e356">
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\Microsoft.Win32.Security.dll</HintPath>
@@ -792,6 +782,10 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.IO.Compression.ZipFile, Version=4.0.2.0, Culture=neutral, PublicKeyToken=b77a5c561934e089, processorArchitecture=MSIL">
+      <HintPath>..\packages\System.IO.Compression.ZipFile.4.3.0\lib\net46\System.IO.Compression.ZipFile.dll</HintPath>
+    </Reference>
     <Reference Include="System.Net.Http">
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\System.Net.Http.dll</HintPath>
       <Private>True</Private>

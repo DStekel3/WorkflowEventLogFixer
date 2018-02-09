@@ -1,27 +1,104 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Excel;
-using Excel = Microsoft.Office.Interop.Excel;
+using System.Diagnostics;
+using System.IO.Compression;
+using System.Text;
 
 namespace WorkflowEventLogFixer
 {
   class Program
   {
+    private static Process _process = new Process();
+
     static void Main(string[] args)
     {
-      var fileDirectory = @"C:\Workflow logs\Profit analyses\08-01-2018\Gesplitst\csv";
-      var files = Directory.EnumerateFiles(fileDirectory);
-      foreach(var file in files)
-      {
-        var eventLog = GetCsvFile(file);
-        WriteCsv(eventLog, $"{fileDirectory}\\filtered3\\{Path.GetFileNameWithoutExtension(file)}.csv");
-      }
+      var baseDirectory = @"C:\Workflow logs\Profit analyses\08-01-2018\Gesplitst\";
+      var baseCsvfileDirectory = Path.Combine(baseDirectory, "csv");
+      var baseXesFileDirectory = Path.Combine(baseDirectory, "xes");
+      var newCsvFileDirectory = $"{baseCsvfileDirectory}\\filtered2";
+      var newXesFileDirectory = $"{baseXesFileDirectory}\\filtered3";
+      var files = Directory.EnumerateFiles(baseCsvfileDirectory);
+      //convert each event log to:
+      // 1. A csv-file, which is filtered on workflow instances.
+      // 2. A xes-file, which is needed for further workflow analysis.
+
+
+      // Variant 1: Using ProM's command line approach for importing csv files and converting into xes-files.
+      //foreach(var file in files)
+      //{
+      //  var eventLog = GetCsvFile(file);
+      //  string csvFile = $"{Path.Combine(newCsvFileDirectory, Path.GetFileNameWithoutExtension(file))}.csv";
+      //  string newXesFile = $"{Path.Combine(newXesFileDirectory, Path.GetFileNameWithoutExtension(file))}.xes";
+      //  WriteCsv(eventLog, csvFile);
+      //  var exitCode = CreateXes(csvFile, newXesFile);
+      //  if(exitCode != 0)
+      //  {
+      //    throw new Exception("Something went wrong when creating the xes file!");
+      //  }
+      //  //ExtractFile(newXesFile);
+      //}
+
+      // Variant 2: Using CSVtoXES git project: 
+      ConvertAllCsvFiles(newCsvFileDirectory, newXesFileDirectory);
+
       Console.WriteLine("Done.");
       Console.Read();
+    }
+
+    private static void ConvertAllCsvFiles(string csvfileDirectory, string xesFileDirectory)
+    {
+      var javaExe = @"C:\Java\jdk1.8.0_91\bin\java.exe";
+
+      var startInfo = new ProcessStartInfo
+      {
+        WindowStyle = ProcessWindowStyle.Maximized,
+        UseShellExecute = false,
+        FileName = @"C:\Users\dst\Source\Repos\CSV-to-XES\CSVtoXES\CsvToXesDirectory.bat",
+        Arguments = $"\"{javaExe}\" \"{csvfileDirectory }\" \"{xesFileDirectory}\"",
+        WorkingDirectory = @"C:\Users\dst\Source\Repos\CSV-to-XES\CSVtoXES"
+      };
+
+      _process.StartInfo = startInfo;
+      _process.Start();
+      _process.WaitForExit();
+    }
+
+    private static void ExtractFile(string sourceFile)
+    {
+      var destination = $"{Path.GetDirectoryName(sourceFile)}\\{Path.GetFileNameWithoutExtension(sourceFile)}-real.xes";
+      string zPath = @"C:\Program Files\7-Zip\7zG.exe";
+      try
+      {
+        ProcessStartInfo pro = new ProcessStartInfo
+        {
+          WindowStyle = ProcessWindowStyle.Maximized,
+          FileName = zPath,
+          Arguments = "x \"" + sourceFile + "\" -o" + destination
+        };
+        Process x = Process.Start(pro);
+        x.WaitForExit();
+      }
+      catch(Exception e) { throw e; }
+    }
+
+    private static int CreateXes(string csvFile, string newXesFile)
+    {
+      var startInfo = new ProcessStartInfo
+      {
+        WindowStyle = ProcessWindowStyle.Maximized,
+        UseShellExecute = false,
+        FileName = @"C:\Users\dst\ProM-nightly-20180129-1.7\ProM-nightly-20180129-1.7\CSV.bat",
+        Arguments = $"\"{csvFile}\" -start \"Timestamp\" -event \"Event\" -trace \"Trace\" -xes \"{newXesFile}\"",
+        WorkingDirectory = @"C:\Users\dst\ProM-nightly-20180129-1.7\ProM-nightly-20180129-1.7"
+      };
+
+      _process.StartInfo = startInfo;
+      _process.Start();
+      _process.WaitForExit();
+      return _process.ExitCode;
     }
 
     private static List<XesObject> GetCsvFile(string filePath)
@@ -81,13 +158,13 @@ namespace WorkflowEventLogFixer
       totalEventLog.AddRange(dossierItemEvents);
       totalEventLog.Reverse();
 
-      var xesLog = new List<XesObject>();
+      var filteredLog = new List<XesObject>();
       foreach(CsvObject csvObject in totalEventLog)
       {
-        xesLog.Add(new XesObject(csvObject));
+        filteredLog.Add(new XesObject(csvObject));
       }
 
-      return xesLog;
+      return filteredLog;
     }
 
     private static void WriteCsv<T>(IEnumerable<T> items, string path)
