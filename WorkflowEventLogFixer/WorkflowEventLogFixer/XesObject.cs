@@ -12,11 +12,11 @@ namespace WorkflowEventLogFixer
     public string Trace { get; set; }
     public string Timestamp { get; set; }
     public string LifeCycle { get; set; }
-    public XesObject(CsvObject csv)
+    public XesObject(Event csv)
     {
-      Trace = csv.DossierItem;
+      Trace = csv.InstanceID;
       Event = $"{csv.TaakOmschrijving}|{csv.ActieOmschrijving}";
-      Timestamp = csv.Begin;
+      Timestamp = csv.Eind;
       LifeCycle = "complete";
     }
   }

@@ -1,51 +1,110 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data;
+using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Diagnostics;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Text;
+using Microsoft.Office.Interop.Excel;
+using OfficeOpenXml;
 
 namespace WorkflowEventLogFixer
 {
-  class Program
+  internal static class Program
   {
-    private static Process _process = new Process();
+    private static readonly Process _process = new Process();
+
+    private const string _baseDirectory = @"C:\Thesis\Profit analyses\22-02-2018";
+    private static readonly string _baseCsvfileDirectory = Path.Combine(_baseDirectory, "csv");
+    private static readonly string _baseXesFileDirectory = Path.Combine(_baseDirectory, "xes");
+    private static readonly string _newXesFileDirectory = $"{_baseXesFileDirectory}";
 
     static void Main(string[] args)
     {
-      var baseDirectory = @"C:\Workflow logs\Profit analyses\08-01-2018\Gesplitst\";
-      var baseCsvfileDirectory = Path.Combine(baseDirectory, "csv");
-      var baseXesFileDirectory = Path.Combine(baseDirectory, "xes");
-      var newCsvFileDirectory = $"{baseCsvfileDirectory}\\filtered2";
-      var newXesFileDirectory = $"{baseXesFileDirectory}\\filtered3";
-      var files = Directory.EnumerateFiles(baseCsvfileDirectory);
+      var files = Directory.EnumerateFiles(_baseDirectory).ToList();
       //convert each event log to:
       // 1. A csv-file, which is filtered on workflow instances.
       // 2. A xes-file, which is needed for further workflow analysis.
 
+      for(int t = 0; t < files.Count; t++)
+      {
+        var file = files[t];
+        Console.WriteLine($"Busy with {Path.GetFileNameWithoutExtension(file)}...({t + 1}/{files.Count})");
+        SplitExcelFiles(file);
 
-      // Variant 1: Using ProM's command line approach for importing csv files and converting into xes-files.
-      //foreach(var file in files)
-      //{
-      //  var eventLog = GetCsvFile(file);
-      //  string csvFile = $"{Path.Combine(newCsvFileDirectory, Path.GetFileNameWithoutExtension(file))}.csv";
-      //  string newXesFile = $"{Path.Combine(newXesFileDirectory, Path.GetFileNameWithoutExtension(file))}.xes";
-      //  WriteCsv(eventLog, csvFile);
-      //  var exitCode = CreateXes(csvFile, newXesFile);
-      //  if(exitCode != 0)
-      //  {
-      //    throw new Exception("Something went wrong when creating the xes file!");
-      //  }
-      //  //ExtractFile(newXesFile);
-      //}
+        // Variant 1: Using ProM's command line approach for importing csv files and converting into xes-files.
+        //var exitCode = CreateXes(csvFile, newXesFile);
+        //if(exitCode != 0)
+        //{
+        //  throw new Exception("Something went wrong when creating the xes file!");
+        //}
+        //ExtractFile(newXesFile);
+      }
 
       // Variant 2: Using CSVtoXES git project: 
-      ConvertAllCsvFiles(newCsvFileDirectory, newXesFileDirectory);
+      Console.WriteLine("Creating XES files...");
+      ConvertAllCsvFiles(_baseCsvfileDirectory, _newXesFileDirectory);
 
       Console.WriteLine("Done.");
       Console.Read();
+    }
+
+    private static void SplitExcelFiles(string file)
+    {
+      var events = GetEvents(file);
+      var groups = events.GroupBy(e => e.WorkflowID);
+      foreach(var group in groups)
+      {
+        string csvFile = $"{Path.Combine(_baseCsvfileDirectory, Path.GetFileNameWithoutExtension(file))}-{group.Key}.csv";
+
+        var filteredEvents = FilterEvents(group.ToList());
+        WriteCsv(filteredEvents, csvFile);
+      }
+    }
+
+    static List<Event> GetEvents(string excelFile)
+    {
+      using(ExcelPackage xlPackage = new ExcelPackage(new FileInfo(excelFile)))
+      {
+        var myWorksheet = xlPackage.Workbook.Worksheets.First();
+        var totalRows = myWorksheet.Dimension.End.Row;
+        var totalColumns = myWorksheet.Dimension.End.Column;
+
+        var events = new List<Event>();
+        for(int rowNum = 2; rowNum <= totalRows; rowNum++)
+        {
+          var row = myWorksheet.Cells[rowNum, 1, rowNum, totalColumns].Select(c => c.Value?.ToString() ?? string.Empty).ToList();
+
+
+          events.Add(new Event
+          {
+            EventID = row[0],
+            Doorlooptijd = row[1],
+            WorkflowID = row[2],
+            WorkflowOmschrijving = row[3],
+            InstanceID = row[4],
+            TypeDossierItem = row[5],
+            TaakID = row[6],
+            TaakOmschrijving = row[7],
+            ActieID = row[8],
+            ActieType = row[9],
+            ActieOmschrijving = row[10],
+            ActieBijschrift = row[11],
+            Begin = row[12],
+            Eind = row[13]
+          });
+        }
+
+        return events
+          .OrderBy(e => e.WorkflowID).ToList()
+          .OrderBy(e => e.InstanceID).ToList()
+          .OrderBy(e => e.Eind).ToList();
+      }
     }
 
     private static void ConvertAllCsvFiles(string csvfileDirectory, string xesFileDirectory)
@@ -66,105 +125,92 @@ namespace WorkflowEventLogFixer
       _process.WaitForExit();
     }
 
-    private static void ExtractFile(string sourceFile)
+    public static List<XesObject> FilterEvents(List<Event> events)
     {
-      var destination = $"{Path.GetDirectoryName(sourceFile)}\\{Path.GetFileNameWithoutExtension(sourceFile)}-real.xes";
-      string zPath = @"C:\Program Files\7-Zip\7zG.exe";
-      try
-      {
-        ProcessStartInfo pro = new ProcessStartInfo
-        {
-          WindowStyle = ProcessWindowStyle.Maximized,
-          FileName = zPath,
-          Arguments = "x \"" + sourceFile + "\" -o" + destination
-        };
-        Process x = Process.Start(pro);
-        x.WaitForExit();
-      }
-      catch(Exception e) { throw e; }
-    }
-
-    private static int CreateXes(string csvFile, string newXesFile)
-    {
-      var startInfo = new ProcessStartInfo
-      {
-        WindowStyle = ProcessWindowStyle.Maximized,
-        UseShellExecute = false,
-        FileName = @"C:\Users\dst\ProM-nightly-20180129-1.7\ProM-nightly-20180129-1.7\CSV.bat",
-        Arguments = $"\"{csvFile}\" -start \"Timestamp\" -event \"Event\" -trace \"Trace\" -xes \"{newXesFile}\"",
-        WorkingDirectory = @"C:\Users\dst\ProM-nightly-20180129-1.7\ProM-nightly-20180129-1.7"
-      };
-
-      _process.StartInfo = startInfo;
-      _process.Start();
-      _process.WaitForExit();
-      return _process.ExitCode;
-    }
-
-    private static List<XesObject> GetCsvFile(string filePath)
-    {
-      var contents = File.ReadAllLines(filePath).Select(a => a.Split(','));
-      var csv = from line in contents.Skip(1)
-                select (from piece in line
-                        select piece).ToList();
-
       var activityKeys = new Dictionary<string, string>();
-      var totalEventLog = new List<CsvObject>();
-      var currentDossierItem = "-1";
-      var dossierItemEvents = new List<CsvObject>();
-      foreach(var row in csv.Reverse())
+      var totalEventLog = new List<Event>();
+      var currentInstance = "-1";
+      var dossierItemEvents = new List<Event>();
+      events.Reverse();
+
+      var badInstances = new List<string>();
+
+      foreach(Event currentEvent in events)
       {
-        var currentEvent = new CsvObject
+        if(!badInstances.Contains(currentEvent.InstanceID))
         {
-          Workflow = row[0],
-          WorkflowOmschrijving = row[1],
-          DossierItem = row[2],
-          TypeDossierItem = row[3],
-          Taak = row[4],
-          TaakOmschrijving = row[5],
-          Volgnummer = row[6],
-          VolgnummerVia = row[7],
-          ActieType = row[8],
-          ActieOmschrijving = row[9],
-          ActietypeOmschrijving = row[10],
-          Begin = row[11],
-          Eind = row[12],
-          StandaardBijschrift = row[13],
-          Status = row[14],
-          DoorPersoon = row[15],
-          WorkflowGegevensStatus = row[16]
-        };
-        if(currentEvent.DossierItem != currentDossierItem)
-        {
-          totalEventLog.AddRange(dossierItemEvents);
-          currentDossierItem = currentEvent.DossierItem;
-          dossierItemEvents.Clear();
-        }
+          if(!EventContainsNoise(currentEvent))
+          {
+            if(currentEvent.InstanceID != currentInstance)
+            {
+              totalEventLog.AddRange(dossierItemEvents);
+              currentInstance = currentEvent.InstanceID;
+              dossierItemEvents.Clear();
+            }
 
-        if(!activityKeys.ContainsKey($"{currentEvent.Taak}:{currentEvent.Volgnummer}"))
-        {
-          activityKeys.Add($"{currentEvent.Taak}:{currentEvent.Volgnummer}", $"{currentEvent.TaakOmschrijving}:{currentEvent.ActieOmschrijving}");
-        }
+            if(!activityKeys.ContainsKey($"{currentEvent.TaakID}:{currentEvent.ActieID}"))
+            {
+              activityKeys.Add($"{currentEvent.TaakID}:{currentEvent.ActieID}", $"{currentEvent.TaakOmschrijving}:{currentEvent.ActieOmschrijving}");
+            }
 
-        if(activityKeys[$"{currentEvent.Taak}:{currentEvent.Volgnummer}"] != $"{currentEvent.TaakOmschrijving}:{currentEvent.ActieOmschrijving}")
-        {
-          Console.WriteLine($"{currentEvent.Workflow}");
-          dossierItemEvents.Clear();
-          break;
-        }
+            if(activityKeys[$"{currentEvent.TaakID}:{currentEvent.ActieID}"] != $"{currentEvent.TaakOmschrijving}:{currentEvent.ActieOmschrijving}")
+            {
+              Console.WriteLine($"{currentEvent.WorkflowID}");
+              dossierItemEvents.Clear();
+              break;
+            }
 
-        dossierItemEvents.Add(currentEvent);
+            dossierItemEvents.Add(currentEvent);
+          }
+          else
+          {
+            badInstances.Add(currentEvent.InstanceID);
+          }
+        }
+      }
+      if(badInstances.Any())
+      {
+        Console.WriteLine($"Removed {badInstances.Count} bad instances.");
       }
       totalEventLog.AddRange(dossierItemEvents);
       totalEventLog.Reverse();
 
       var filteredLog = new List<XesObject>();
-      foreach(CsvObject csvObject in totalEventLog)
+      foreach(Event currentEvent in totalEventLog)
       {
-        filteredLog.Add(new XesObject(csvObject));
+        filteredLog.Add(new XesObject(currentEvent));
       }
 
       return filteredLog;
+    }
+
+    private static bool EventContainsNoise(Event currentEvent)
+    {
+      if(!int.TryParse(currentEvent.InstanceID, out int a))
+      {
+        return true;
+      }
+      if(!int.TryParse(currentEvent.TaakID, out int b))
+      {
+        return true;
+      }
+      if(!int.TryParse(currentEvent.ActieID, out int c))
+      {
+        return true;
+      }
+      if(currentEvent.TaakOmschrijving == "NULL")
+      {
+        return true;
+      }
+      if(currentEvent.ActieOmschrijving == "NULL")
+      {
+        return true;
+      }
+      if(currentEvent.Eind == "NULL")
+      {
+        return true;
+      }
+      return false;
     }
 
     private static void WriteCsv<T>(IEnumerable<T> items, string path)
@@ -183,5 +229,7 @@ namespace WorkflowEventLogFixer
         }
       }
     }
+
+
   }
 }
