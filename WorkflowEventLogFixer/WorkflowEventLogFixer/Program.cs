@@ -1,16 +1,9 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
-using System.Data;
-using System.Data.OleDb;
 using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Diagnostics;
-using System.IO.Compression;
-using System.Runtime.InteropServices;
-using System.Text;
-using Microsoft.Office.Interop.Excel;
 using OfficeOpenXml;
 
 namespace WorkflowEventLogFixer
@@ -19,48 +12,128 @@ namespace WorkflowEventLogFixer
   {
     private static readonly Process _process = new Process();
 
-    private const string _baseDirectory = @"C:\Thesis\Profit analyses\22-02-2018";
-    private static readonly string _baseCsvfileDirectory = Path.Combine(_baseDirectory, "csv");
+    private static string _baseDirectory = @"C:\Thesis\Profit analyses\22-02-2018";
+    private static readonly string _baseFilteredFileDirectory = Path.Combine(_baseDirectory, "filter");
+    private static readonly string _baseCsvFileDirectory = Path.Combine(_baseDirectory, "csv");
     private static readonly string _baseXesFileDirectory = Path.Combine(_baseDirectory, "xes");
-    private static readonly string _newXesFileDirectory = $"{_baseXesFileDirectory}";
+    private static readonly string _basePtmlFileDirectory = Path.Combine(_baseDirectory, "ptml");
+    private static string _pythonExe = @"C:\Python34\py.exe";
+    private static string _word2vecScriptFile = @"C:\Thesis\Word2Vec\word2vec.py";
+    private static string _processTreeScriptFile = @"C:\Users\dst\eclipse-workspace\ProM\ProcessTreeMiner.txt";
+
+
+    //convert each event log to:
+    // 1. A csv-file, which is filtered on workflow instances.
+    // 2. A xes-file, which is needed for further workflow analysis.
+
 
     static void Main(string[] args)
     {
-      var files = Directory.EnumerateFiles(_baseDirectory).ToList();
-      //convert each event log to:
-      // 1. A csv-file, which is filtered on workflow instances.
-      // 2. A xes-file, which is needed for further workflow analysis.
+      //if(args.Length > 0)
+      //{
+      //  _baseDirectory = args[0];
+      //  _pythonExe = args[1];
+      //  _word2vecScriptFile = args[2];
+      //  _processTreeScriptFile = args[3];
+      //}
 
-      for(int t = 0; t < files.Count; t++)
-      {
-        var file = files[t];
-        Console.WriteLine($"Busy with {Path.GetFileNameWithoutExtension(file)}...({t + 1}/{files.Count})");
-        SplitExcelFiles(file);
+      //CreateDirectoriesIfNeeded();
+      //CheckExistanceOfScriptFiles();
 
-        // Variant 1: Using ProM's command line approach for importing csv files and converting into xes-files.
-        //var exitCode = CreateXes(csvFile, newXesFile);
-        //if(exitCode != 0)
-        //{
-        //  throw new Exception("Something went wrong when creating the xes file!");
-        //}
-        //ExtractFile(newXesFile);
-      }
+      //var files = Directory.EnumerateFiles(_baseDirectory).ToList();
 
-      // Variant 2: Using CSVtoXES git project: 
-      Console.WriteLine("Creating XES files...");
-      ConvertAllCsvFiles(_baseCsvfileDirectory, _newXesFileDirectory);
+      //for(int t = 0; t < files.Count; t++)
+      //{
+      //  var file = files[t];
+      //  Console.WriteLine($"Busy with {Path.GetFileNameWithoutExtension(file)}...({t + 1}/{files.Count})");
+      //  SplitExcelFileIntoSeparateWorkflowLogs(file);
+      //}
+
+      //// Apply word2vec throughout the workflow logs and give similar events similar names.
+      //ApplyWord2VecThroughGensimScript(_baseCsvFileDirectory);
+      //Console.WriteLine("Creating XES files...");
+      //ConvertCsvToXesFiles(_baseCsvFileDirectory, _baseXesFileDirectory);
+
+      //UpdatePathsInProcessTreeScript(_processTreeScriptFile, _baseXesFileDirectory, _basePtmlFileDirectory);
+      //CreatePtmlFiles(_processTreeScriptFile);
+
+      LoadProcessTrees(_basePtmlFileDirectory);
 
       Console.WriteLine("Done.");
-      Console.Read();
     }
 
-    private static void SplitExcelFiles(string file)
+    private static void LoadProcessTrees(string basePtmlFileDirectory)
+    {
+      foreach(string file in Directory.EnumerateFiles(basePtmlFileDirectory))
+      {
+        var loader = new ProcessTreeLoader(file);
+      }
+    }
+
+
+    private static void CheckExistanceOfScriptFiles()
+    {
+      if(!File.Exists(_pythonExe))
+      {
+        throw new Exception("Python executable not found.");
+      }
+      if(!File.Exists(_word2vecScriptFile))
+      {
+        throw new Exception("Word2Vec script not found.");
+      }
+      if(!File.Exists(_processTreeScriptFile))
+      {
+        throw new Exception("Process tree script not found.");
+      }
+    }
+
+    private static void CreateDirectoriesIfNeeded()
+    {
+      if(!Directory.Exists(_baseDirectory))
+      {
+        throw new Exception("This directory does not exist.");
+      }
+      if(!Directory.Exists(_baseFilteredFileDirectory))
+      {
+        Directory.CreateDirectory(_baseFilteredFileDirectory);
+      }
+      if(!Directory.Exists(_baseCsvFileDirectory))
+      {
+        Directory.CreateDirectory(_baseCsvFileDirectory);
+      }
+      if(!Directory.Exists(_baseXesFileDirectory))
+      {
+        Directory.CreateDirectory(_baseXesFileDirectory);
+      }
+      if(!Directory.Exists(_basePtmlFileDirectory))
+      {
+        Directory.CreateDirectory(_basePtmlFileDirectory);
+      }
+    }
+
+    /// <summary>
+    /// Calls inductive miner script which input xes-directory and outputs ptml files.
+    /// </summary>
+    /// <param name="processTreeScriptFile"></param>
+    private static void CreatePtmlFiles(string processTreeScriptFile)
+    {
+      Process process = new Process();
+      ProcessStartInfo startInfo = new ProcessStartInfo();
+      startInfo.WindowStyle = ProcessWindowStyle.Maximized;
+      startInfo.WorkingDirectory = Path.GetDirectoryName(processTreeScriptFile) ?? throw new InvalidOperationException();
+      startInfo.FileName = "ProM_CLI.bat";
+      startInfo.Arguments = "-f ProcessTreeMiner.txt";
+      process.StartInfo = startInfo;
+      process.Start();
+    }
+
+    private static void SplitExcelFileIntoSeparateWorkflowLogs(string file)
     {
       var events = GetEvents(file);
       var groups = events.GroupBy(e => e.WorkflowID);
       foreach(var group in groups)
       {
-        string csvFile = $"{Path.Combine(_baseCsvfileDirectory, Path.GetFileNameWithoutExtension(file))}-{group.Key}.csv";
+        string csvFile = $"{Path.Combine(_baseCsvFileDirectory, Path.GetFileNameWithoutExtension(file) ?? throw new InvalidOperationException())}-{group.Key}.csv";
 
         var filteredEvents = FilterEvents(group.ToList());
         WriteCsv(filteredEvents, csvFile);
@@ -107,7 +180,7 @@ namespace WorkflowEventLogFixer
       }
     }
 
-    private static void ConvertAllCsvFiles(string csvfileDirectory, string xesFileDirectory)
+    private static void ConvertCsvToXesFiles(string csvfileDirectory, string xesFileDirectory)
     {
       var javaExe = @"C:\Java\jdk1.8.0_91\bin\java.exe";
 
@@ -230,6 +303,66 @@ namespace WorkflowEventLogFixer
       }
     }
 
+    /// <summary>
+    /// Re-writes the xes- and ptml-directory paths in the script.
+    /// </summary>
+    /// <param name="scriptPath"></param>
+    /// <param name="xesDirectoryPath">Directory which contains xes files. Used as input for the IM.</param>
+    /// <param name="ptmlDirectoryPath">Directory where resulting ptml files are saved. Used as output for the IM.</param>
+    private static void UpdatePathsInProcessTreeScript(string scriptPath, string xesDirectoryPath, string ptmlDirectoryPath)
+    {
+      // new path lines in script
+      string xesLineToWrite = $"xesDirectoryPath = \"{xesDirectoryPath}\\\";".Replace("\\", "\\\\");
+      string ptmlLineToWrite = $"ptmlDirectoryPath = \"{ptmlDirectoryPath}\\\";".Replace("\\", "\\\\");
 
+      if(File.Exists(scriptPath))
+      {
+        string[] lines = File.ReadAllLines(scriptPath);
+
+        if(lines.Length > 0)
+        {
+          // Write the new file over the old file.
+          using(StreamWriter writer = new StreamWriter(scriptPath))
+          {
+            for(int currentLine = 0; currentLine < lines.Length; currentLine++)
+            {
+              if(currentLine == 2)
+              {
+                writer.WriteLine(xesLineToWrite);
+              }
+              else if(currentLine == 3)
+              {
+                writer.WriteLine(ptmlLineToWrite);
+              }
+              else
+              {
+                writer.WriteLine(lines[currentLine]);
+              }
+            }
+          }
+        }
+        else
+        {
+          throw new Exception("Script is empty.");
+        }
+      }
+    }
+
+    private static void ApplyWord2VecThroughGensimScript(string csvDirectory)
+    {
+      ProcessStartInfo start = new ProcessStartInfo();
+      start.FileName = _pythonExe;//cmd is full path to python.exe
+      start.Arguments =$"-f {_word2vecScriptFile} '{csvDirectory}'";//args is path to .py file and any cmd line args
+      start.UseShellExecute = false;
+      start.RedirectStandardOutput = true;
+      using(Process process = Process.Start(start))
+      {
+        using(StreamReader reader = process?.StandardOutput)
+        {
+          string result = reader?.ReadToEnd();
+          Console.Write(result);
+        }
+      }
+    }
   }
 }

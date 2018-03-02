@@ -808,6 +808,9 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Event.cs" />
+    <Compile Include="Node.cs" />
+    <Compile Include="ProcessTree.cs" />
+    <Compile Include="ProcessTreeLoader.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="CsvObject.cs" />
