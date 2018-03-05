@@ -6,24 +6,39 @@ namespace WorkflowEventLogFixer
 {
   internal class ProcessTree
   {
-    private readonly Guid _id;
-    private readonly Guid _root;
+    private readonly string _filePath;
+    private readonly Guid _id = Guid.Empty;
+    private readonly Guid _rootId = Guid.Empty;
+    private Node _root;
     private readonly List<Node> _nodes = new List<Node>();
 
-    public ProcessTree(string id, string root)
+    public ProcessTree(string filePath, string id, string rootId)
     {
-      _id = new Guid(id);
-      _root = new Guid(root);
+      Guid.TryParseExact(id, "D", out _id);
+      Guid.TryParseExact(rootId, "D", out _rootId);
+      _filePath = filePath;
     }
 
     public void AddNode(Node node)
     {
       _nodes.Add(node);
+      if(node.GetId() == _rootId)
+      {
+        node.SetRoot(true);
+        _root = node;
+      }
     }
 
-    public Node GetNode(Guid id)
+    private Node GetNode(Guid id)
     {
-      return _nodes.Single(n => n.GetId() == id);
+      try
+      {
+        return _nodes.Single(n => n.GetId() == id);
+      }
+      catch(InvalidOperationException e)
+      {
+        throw new InvalidOperationException($"The Guid {id} you look for is not unique!", e);
+      }
     }
 
     public Guid GetId()
@@ -31,7 +46,7 @@ namespace WorkflowEventLogFixer
       return _id;
     }
 
-    public Guid GetRoot()
+    public Node GetRoot()
     {
       return _root;
     }
@@ -40,8 +55,13 @@ namespace WorkflowEventLogFixer
     {
       Node parent = GetNode(parentId);
       Node child = GetNode(childId);
-      parent.AddChild(childId);
-      child.SetParent(parentId);
+      parent.AddChild(child);
+      child.SetParent(parent);
+    }
+
+    public string GetFilePath()
+    {
+      return _filePath;
     }
   }
 }

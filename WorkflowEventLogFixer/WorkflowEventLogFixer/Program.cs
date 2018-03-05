@@ -57,17 +57,54 @@ namespace WorkflowEventLogFixer
       //UpdatePathsInProcessTreeScript(_processTreeScriptFile, _baseXesFileDirectory, _basePtmlFileDirectory);
       //CreatePtmlFiles(_processTreeScriptFile);
 
-      LoadProcessTrees(_basePtmlFileDirectory);
+      var trees = LoadProcessTrees(_basePtmlFileDirectory);
+      var pattern = CreatePattern();
 
+      List<string> validOccurrences = new List<string>();
+
+      var induced = false;
+
+      foreach(var tree in trees)
+      {
+        if(SubTreeFinder.IsValidSubTree(tree, pattern, induced))
+        {
+          validOccurrences.Add(tree.GetFilePath());
+          if(induced)
+          {
+            Console.WriteLine($"Given pattern is an induced subtree in {tree.GetFilePath()}");
+          }
+          else
+          {
+            Console.WriteLine($"Given pattern is an embedded subtree in {tree.GetFilePath()}");
+          }
+        }
+      }
+
+      Console.WriteLine($"In total, {validOccurrences.Count} occurrence(s) found after searching in {trees.Count} trees.");
       Console.WriteLine("Done.");
     }
 
-    private static void LoadProcessTrees(string basePtmlFileDirectory)
+    private static ProcessTree CreatePattern()
     {
+      var testFile = Path.Combine(Directory.GetCurrentDirectory(), "TextFiles", "testPattern.ptml");
+      return LoadSingleTree(testFile);
+    }
+
+    private static List<ProcessTree> LoadProcessTrees(string basePtmlFileDirectory)
+    {
+      var trees = new List<ProcessTree>();
       foreach(string file in Directory.EnumerateFiles(basePtmlFileDirectory))
       {
-        var loader = new ProcessTreeLoader(file);
+        var tree = ProcessTreeLoader.LoadTree(file);
+        trees.Add(tree);
       }
+      
+      return trees;
+    }
+
+    private static ProcessTree LoadSingleTree(string filePath)
+    {
+      return ProcessTreeLoader.LoadTree(filePath);
     }
 
 
@@ -118,11 +155,13 @@ namespace WorkflowEventLogFixer
     private static void CreatePtmlFiles(string processTreeScriptFile)
     {
       Process process = new Process();
-      ProcessStartInfo startInfo = new ProcessStartInfo();
-      startInfo.WindowStyle = ProcessWindowStyle.Maximized;
-      startInfo.WorkingDirectory = Path.GetDirectoryName(processTreeScriptFile) ?? throw new InvalidOperationException();
-      startInfo.FileName = "ProM_CLI.bat";
-      startInfo.Arguments = "-f ProcessTreeMiner.txt";
+      ProcessStartInfo startInfo = new ProcessStartInfo
+      {
+        WindowStyle = ProcessWindowStyle.Maximized,
+        WorkingDirectory = Path.GetDirectoryName(processTreeScriptFile) ?? throw new InvalidOperationException(),
+        FileName = "ProM_CLI.bat",
+        Arguments = "-f ProcessTreeMiner.txt"
+      };
       process.StartInfo = startInfo;
       process.Start();
     }
@@ -350,11 +389,15 @@ namespace WorkflowEventLogFixer
 
     private static void ApplyWord2VecThroughGensimScript(string csvDirectory)
     {
-      ProcessStartInfo start = new ProcessStartInfo();
-      start.FileName = _pythonExe;//cmd is full path to python.exe
-      start.Arguments =$"-f {_word2vecScriptFile} '{csvDirectory}'";//args is path to .py file and any cmd line args
-      start.UseShellExecute = false;
-      start.RedirectStandardOutput = true;
+      ProcessStartInfo start = new ProcessStartInfo
+      {
+        FileName = _pythonExe,
+        Arguments = $"-f {_word2vecScriptFile} '{csvDirectory}'",
+        UseShellExecute = false,
+        RedirectStandardOutput = true
+      };
+      //cmd is full path to python.exe
+      //args is path to .py file and any cmd line args
       using(Process process = Process.Start(start))
       {
         using(StreamReader reader = process?.StandardOutput)

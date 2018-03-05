@@ -7,30 +7,29 @@ using System.Xml;
 
 namespace WorkflowEventLogFixer
 {
-  class ProcessTreeLoader
+  static class ProcessTreeLoader
   {
-    private readonly string _sourceFile;
-
     public enum NodeType
     {
-      processTree,
       xor,
       xorLoop,
       and,
+      andLoop,
       sequence,
+      sequenceLoop,
       manualTask,
-      automaticTask,
-      parentsNode,
-      Other
+      tau
     };
 
-    public ProcessTreeLoader(string filePath)
+    public static ProcessTree LoadTree(string filePath)
     {
-      _sourceFile = filePath;
+      var sourceFile = filePath;
       ProcessTree tree = null;
-      XmlReaderSettings settings = new XmlReaderSettings();
-      settings.DtdProcessing = DtdProcessing.Parse;
-      XmlReader reader = XmlReader.Create(_sourceFile, settings);
+      XmlReaderSettings settings = new XmlReaderSettings
+      {
+        DtdProcessing = DtdProcessing.Parse
+      };
+      XmlReader reader = XmlReader.Create(sourceFile, settings);
       reader.MoveToContent();
       while(reader.Read())
       {
@@ -40,7 +39,7 @@ namespace WorkflowEventLogFixer
           {
             case "processTree":
               {
-                tree = new ProcessTree(reader["id"], reader["root"]);
+                tree = new ProcessTree(filePath, reader["id"], reader["root"]);
                 break;
               }
             case "xor":
@@ -48,9 +47,19 @@ namespace WorkflowEventLogFixer
                 tree.AddNode(new Node(NodeType.xor, reader["id"]));
                 break;
               }
+            case "xorLoop":
+              {
+                tree.AddNode(new Node(NodeType.xorLoop, reader["id"]));
+                break;
+              }
             case "and":
               {
                 tree.AddNode(new Node(NodeType.and, reader["id"]));
+                break;
+              }
+            case "andLoop":
+              {
+                tree.AddNode(new Node(NodeType.andLoop, reader["id"]));
                 break;
               }
             case "sequence":
@@ -58,14 +67,19 @@ namespace WorkflowEventLogFixer
                 tree.AddNode(new Node(NodeType.sequence, reader["id"]));
                 break;
               }
+            case "sequenceLoop":
+            {
+              tree.AddNode(new Node(NodeType.sequenceLoop, reader["id"]));
+              break;
+            }
             case "manualTask":
               {
-                tree.AddNode(new Node(NodeType.manualTask, reader["id"]));
+                tree.AddNode(new Node(NodeType.manualTask, reader["id"], reader["name"]));
                 break;
               }
             case "automaticTask":
               {
-                tree.AddNode(new Node(NodeType.automaticTask, reader["id"]));
+                tree.AddNode(new Node(NodeType.tau, reader["id"]));
                 break;
               }
             case "parentsNode":
@@ -78,6 +92,7 @@ namespace WorkflowEventLogFixer
           }
         }
       }
+      return tree;
     }
   }
 }

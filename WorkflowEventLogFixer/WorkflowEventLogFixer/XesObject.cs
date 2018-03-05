@@ -8,10 +8,13 @@ namespace WorkflowEventLogFixer
 {
   class XesObject
   {
-    public string Event { get; set; }
-    public string Trace { get; set; }
-    public string Timestamp { get; set; }
-    public string LifeCycle { get; set; }
+    private string Event { get; set; }
+
+    private string Trace { get; set; }
+
+    private string Timestamp { get; set; }
+
+    private string LifeCycle { get; set; }
     public XesObject(Event csv)
     {
       Trace = csv.InstanceID;
