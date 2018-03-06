@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 
 namespace WorkflowEventLogFixer
 {
-  class XesObject
+  public class XesObject
   {
     private string Event { get; set; }
 

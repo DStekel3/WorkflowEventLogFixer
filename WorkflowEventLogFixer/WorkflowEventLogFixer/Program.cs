@@ -4,21 +4,24 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Diagnostics;
+using System.Windows.Forms;
+using Microsoft.Office.Interop.Excel;
 using OfficeOpenXml;
 
 namespace WorkflowEventLogFixer
 {
-  internal static class Program
+  public static class Program
   {
     private static readonly Process _process = new Process();
 
-    private static string _baseDirectory = @"C:\Thesis\Profit analyses\22-02-2018";
-    private static readonly string _baseFilteredFileDirectory = Path.Combine(_baseDirectory, "filter");
-    private static readonly string _baseCsvFileDirectory = Path.Combine(_baseDirectory, "csv");
-    private static readonly string _baseXesFileDirectory = Path.Combine(_baseDirectory, "xes");
-    private static readonly string _basePtmlFileDirectory = Path.Combine(_baseDirectory, "ptml");
-    private static string _pythonExe = @"C:\Python34\py.exe";
-    private static string _word2vecScriptFile = @"C:\Thesis\Word2Vec\word2vec.py";
+    private static string _baseDirectory = "";
+    private static string _baseFilteredFileDirectory = Path.Combine(_baseDirectory, "filter");
+    private static string _baseCsvFileDirectory = Path.Combine(_baseDirectory, "csv");
+    private static string _baseXesFileDirectory = Path.Combine(_baseDirectory, "xes");
+    private static string _basePtmlFileDirectory = Path.Combine(_baseDirectory, "ptml");
+    private static string _pythonExe = "";
+    private static string _javaExe = "";
+    private static string _word2vecScriptFile = "";
     private static string _processTreeScriptFile = @"C:\Users\dst\eclipse-workspace\ProM\ProcessTreeMiner.txt";
 
 
@@ -27,35 +30,9 @@ namespace WorkflowEventLogFixer
     // 2. A xes-file, which is needed for further workflow analysis.
 
 
-    static void Main(string[] args)
+    public static void Main(string[] args)
     {
-      //if(args.Length > 0)
-      //{
-      //  _baseDirectory = args[0];
-      //  _pythonExe = args[1];
-      //  _word2vecScriptFile = args[2];
-      //  _processTreeScriptFile = args[3];
-      //}
-
-      //CreateDirectoriesIfNeeded();
-      //CheckExistanceOfScriptFiles();
-
-      //var files = Directory.EnumerateFiles(_baseDirectory).ToList();
-
-      //for(int t = 0; t < files.Count; t++)
-      //{
-      //  var file = files[t];
-      //  Console.WriteLine($"Busy with {Path.GetFileNameWithoutExtension(file)}...({t + 1}/{files.Count})");
-      //  SplitExcelFileIntoSeparateWorkflowLogs(file);
-      //}
-
-      //// Apply word2vec throughout the workflow logs and give similar events similar names.
-      //ApplyWord2VecThroughGensimScript(_baseCsvFileDirectory);
-      //Console.WriteLine("Creating XES files...");
-      //ConvertCsvToXesFiles(_baseCsvFileDirectory, _baseXesFileDirectory);
-
-      //UpdatePathsInProcessTreeScript(_processTreeScriptFile, _baseXesFileDirectory, _basePtmlFileDirectory);
-      //CreatePtmlFiles(_processTreeScriptFile);
+      PreProcessingPhase(args[0], args[1]);
 
       var trees = LoadProcessTrees(_basePtmlFileDirectory);
       var pattern = CreatePattern();
@@ -80,8 +57,87 @@ namespace WorkflowEventLogFixer
         }
       }
 
-      Console.WriteLine($"In total, {validOccurrences.Count} occurrence(s) found after searching in {trees.Count} trees.");
+      Console.WriteLine($"In total, {validOccurrences.Count} occurrence(s) found after searching in {trees.Count} models.");
       Console.WriteLine("Done.");
+    }
+
+    public static void PreProcessingPhase(string importDir, string promScript)
+    {
+      _baseDirectory = importDir;
+      // update all directory paths
+      _baseFilteredFileDirectory = Path.Combine(_baseDirectory, "filter");
+      _baseCsvFileDirectory = Path.Combine(_baseDirectory, "csv");
+      _baseXesFileDirectory = Path.Combine(_baseDirectory, "xes");
+      _basePtmlFileDirectory = Path.Combine(_baseDirectory, "ptml");
+
+    _processTreeScriptFile = promScript;
+
+      CreateDirectoriesIfNeeded();
+
+      if(CheckIfPythonAndJavaAreInstalled())
+      {
+        CheckExistanceOfScriptFiles();
+
+        var files = Directory.EnumerateFiles(_baseDirectory).ToList();
+
+        for(int t = 0; t < files.Count; t++)
+        {
+          var file = files[t];
+          Console.WriteLine($"Busy with {Path.GetFileNameWithoutExtension(file)}...({t + 1}/{files.Count})");
+          //SplitExcelFileIntoSeparateWorkflowLogs(file);
+        }
+
+        // Apply word2vec throughout the workflow logs and give similar events similar names.
+        // ApplyWord2VecThroughGensimScript(_baseCsvFileDirectory);
+
+        Console.WriteLine("Creating XES files...");
+        ConvertCsvToXesFiles(_baseCsvFileDirectory, _baseXesFileDirectory);
+
+        UpdatePathsInProcessTreeScript(_processTreeScriptFile, _baseXesFileDirectory, _basePtmlFileDirectory);
+        CreatePtmlFiles(_processTreeScriptFile);
+      }
+    }
+
+    private static bool CheckIfPythonAndJavaAreInstalled()
+    {
+      ProcessStartInfo info = new ProcessStartInfo
+      {
+        FileName = "cmd.exe",
+        Arguments = "/C where python",
+        RedirectStandardOutput = true,
+        UseShellExecute = false,
+        CreateNoWindow = false
+      };
+      Process cmd = new Process();
+      cmd.StartInfo = info;
+      cmd.Start();
+      cmd.WaitForExit();
+      var pythonPath = cmd.StandardOutput.ReadLine();
+
+      if(File.Exists(pythonPath) && pythonPath.EndsWith(".exe"))
+      {
+        _pythonExe = pythonPath;
+      }
+      else
+      {
+        MessageBox.Show("Python is not installed.");
+        return false;
+      }
+      cmd.StartInfo.Arguments = "/C where python";
+      cmd.Start();
+      cmd.WaitForExit();
+      var javaPath = cmd.StandardOutput.ReadLine();
+
+      if(File.Exists(javaPath) && javaPath.EndsWith(".exe"))
+      {
+        _javaExe = pythonPath;
+      }
+      else
+      {
+        MessageBox.Show("Java is not installed.");
+        return false;
+      }
+      return true;
     }
 
     private static ProcessTree CreatePattern()
@@ -90,7 +146,7 @@ namespace WorkflowEventLogFixer
       return LoadSingleTree(testFile);
     }
 
-    private static List<ProcessTree> LoadProcessTrees(string basePtmlFileDirectory)
+    public static List<ProcessTree> LoadProcessTrees(string basePtmlFileDirectory)
     {
       var trees = new List<ProcessTree>();
       foreach(string file in Directory.EnumerateFiles(basePtmlFileDirectory))
@@ -98,7 +154,7 @@ namespace WorkflowEventLogFixer
         var tree = ProcessTreeLoader.LoadTree(file);
         trees.Add(tree);
       }
-      
+
       return trees;
     }
 
@@ -110,6 +166,8 @@ namespace WorkflowEventLogFixer
 
     private static void CheckExistanceOfScriptFiles()
     {
+      _word2vecScriptFile = Path.Combine(Directory.GetCurrentDirectory(), "Scripts", "word2vec.py");
+
       if(!File.Exists(_pythonExe))
       {
         throw new Exception("Python executable not found.");
@@ -221,14 +279,12 @@ namespace WorkflowEventLogFixer
 
     private static void ConvertCsvToXesFiles(string csvfileDirectory, string xesFileDirectory)
     {
-      var javaExe = @"C:\Java\jdk1.8.0_91\bin\java.exe";
-
       var startInfo = new ProcessStartInfo
       {
         WindowStyle = ProcessWindowStyle.Maximized,
         UseShellExecute = false,
         FileName = @"C:\Users\dst\Source\Repos\CSV-to-XES\CSVtoXES\CsvToXesDirectory.bat",
-        Arguments = $"\"{javaExe}\" \"{csvfileDirectory }\" \"{xesFileDirectory}\"",
+        Arguments = $"\"{_javaExe}\" \"{csvfileDirectory }\" \"{xesFileDirectory}\"",
         WorkingDirectory = @"C:\Users\dst\Source\Repos\CSV-to-XES\CSVtoXES"
       };
 

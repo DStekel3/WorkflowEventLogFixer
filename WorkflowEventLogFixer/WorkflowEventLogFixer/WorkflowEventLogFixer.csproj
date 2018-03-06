@@ -797,6 +797,7 @@
       <HintPath>..\packages\UpnComponents_Dependencies.1.0.0\lib\System.Net.Http.Formatting.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml.Linq" />
     <Reference Include="System.Data.DataSetExtensions" />
     <Reference Include="Microsoft.CSharp" />
@@ -826,6 +827,9 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="DundasWinChart.xml" />
+    <Content Include="Scripts\word2vec.py">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="System.Net.Http.Formatting.xml" />
     <Content Include="System.Net.Http.xml" />
   </ItemGroup>

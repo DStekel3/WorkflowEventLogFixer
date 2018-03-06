@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace WorkflowEventLogFixer
 {
-  internal class ProcessTree
+  public class ProcessTree
   {
     private readonly string _filePath;
     private readonly Guid _id = Guid.Empty;

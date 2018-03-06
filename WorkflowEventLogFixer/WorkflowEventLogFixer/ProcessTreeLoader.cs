@@ -7,7 +7,7 @@ using System.Xml;
 
 namespace WorkflowEventLogFixer
 {
-  static class ProcessTreeLoader
+  public static class ProcessTreeLoader
   {
     public enum NodeType
     {
@@ -68,10 +68,10 @@ namespace WorkflowEventLogFixer
                 break;
               }
             case "sequenceLoop":
-            {
-              tree.AddNode(new Node(NodeType.sequenceLoop, reader["id"]));
-              break;
-            }
+              {
+                tree.AddNode(new Node(NodeType.sequenceLoop, reader["id"]));
+                break;
+              }
             case "manualTask":
               {
                 tree.AddNode(new Node(NodeType.manualTask, reader["id"], reader["name"]));
@@ -92,6 +92,7 @@ namespace WorkflowEventLogFixer
           }
         }
       }
+      reader.Close();
       return tree;
     }
   }
